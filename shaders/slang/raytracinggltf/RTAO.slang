@@ -26,11 +26,9 @@ struct UBOCameraProperties {
 
 [[vk::binding(0, 0)]] RaytracingAccelerationStructure accelStruct;
 [[vk::binding(1, 0)]] RWTexture2D<float4> image;
-[[vk::binding(2, 0)]] RWTexture2D<float4> positionOut;
-[[vk::binding(3, 0)]] RWTexture2D<float4> normalOut;
-[[vk::binding(4, 0)]] ConstantBuffer<UBOCameraProperties> cam;
-[[vk::binding(6, 0)]] StructuredBuffer<GeometryNode> geometryNodes;
-[[vk::binding(7, 0)]] Sampler2D textures[];
+[[vk::binding(2, 0)]] ConstantBuffer<UBOCameraProperties> cam;
+[[vk::binding(4, 0)]] StructuredBuffer<GeometryNode> geometryNodes;
+[[vk::binding(5, 0)]] Sampler2D textures[];
 
 struct Vertex
 {
