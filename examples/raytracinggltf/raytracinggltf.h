@@ -11,13 +11,16 @@
 #define VK_GLTF_MATERIAL_IDS
 #include "VulkanglTFModel.h"
 
+ // World Positions, Normals, Ambient Occlusion Result
+constexpr int g_numAdditionalImages = 3;
+
 class VulkanExample : public VulkanRaytracingSample
 {
 public:
 	AccelerationStructure bottomLevelAS{};
 	AccelerationStructure topLevelAS{};
 
-	StorageImage additionalStorageImages[2]; // positions, normals
+	StorageImage additionalStorageImages[g_numAdditionalImages];
 
 	vks::Buffer vertexBuffer;
 	vks::Buffer indexBuffer;
@@ -87,7 +90,9 @@ public:
 
 	void loadAssets();
 
-	void createAdditionalStorageImages(VkFormat format, VkExtent3D extent);
+	void createAdditionalStorageImages();
+
+	void setupStorageImage(VkFormat format, VkExtent3D extent, StorageImage& outImage);
 
 	void prepare();
 

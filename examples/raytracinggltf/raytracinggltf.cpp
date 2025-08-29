@@ -494,7 +494,7 @@ void VulkanExample::createDescriptorSets()
 	uint32_t imageCount = static_cast<uint32_t>(model.textures.size());
 	std::vector<VkDescriptorPoolSize> poolSizes = {
 		{ VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, maxConcurrentFrames },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, maxConcurrentFrames * 3}, // James: Additional images for the position and normal images
+		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, maxConcurrentFrames * (g_numAdditionalImages + 1)}, // James: Additional images for the position and normal images
 		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, maxConcurrentFrames },
 		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, maxConcurrentFrames },
 		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, maxConcurrentFrames },
@@ -656,62 +656,69 @@ void VulkanExample::loadAssets()
 	model.loadFromFile(getAssetPath() + "models/FlightHelmet/glTF/FlightHelmet.gltf", vulkanDevice, queue);
 }
 
-void VulkanExample::createAdditionalStorageImages(VkFormat format, VkExtent3D extent)
+void VulkanExample::createAdditionalStorageImages()
+{
+	// World Positions texture
+	setupStorageImage(swapChain.colorFormat, { width, height, 1 }, additionalStorageImages[0]);
+	// Normals texture
+	setupStorageImage(swapChain.colorFormat, { width, height, 1 }, additionalStorageImages[1]);
+	// Ambient Occlusion Result texture
+	setupStorageImage(VkFormat::VK_FORMAT_R8_UNORM, { width, height, 1 }, additionalStorageImages[2]);
+}
+
+void VulkanExample::setupStorageImage(VkFormat format, VkExtent3D extent, StorageImage& outImage)
 {
 	// Release ressources if image is to be recreated
-	for (int i = 0; i < 2; ++i)
-	{
-		if (additionalStorageImages[i].image != VK_NULL_HANDLE) {
-			vkDestroyImageView(device, additionalStorageImages[i].view, nullptr);
-			vkDestroyImage(device, additionalStorageImages[i].image, nullptr);
-			vkFreeMemory(device, additionalStorageImages[i].memory, nullptr);
-			additionalStorageImages[i] = {};
-		}
-
-		VkImageCreateInfo image{
-			.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-			.imageType = VK_IMAGE_TYPE_2D,
-			.format = format,
-			.extent = extent,
-			.mipLevels = 1,
-			.arrayLayers = 1,
-			.samples = VK_SAMPLE_COUNT_1_BIT,
-			.tiling = VK_IMAGE_TILING_OPTIMAL,
-			.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
-		};
-		VK_CHECK_RESULT(vkCreateImage(vulkanDevice->logicalDevice, &image, nullptr, &additionalStorageImages[i].image));
-
-		VkMemoryRequirements memReqs;
-		vkGetImageMemoryRequirements(vulkanDevice->logicalDevice, additionalStorageImages[i].image, &memReqs);
-		VkMemoryAllocateInfo memoryAllocateInfo = vks::initializers::memoryAllocateInfo();
-		memoryAllocateInfo.allocationSize = memReqs.size;
-		memoryAllocateInfo.memoryTypeIndex = vulkanDevice->getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		VK_CHECK_RESULT(vkAllocateMemory(vulkanDevice->logicalDevice, &memoryAllocateInfo, nullptr, &additionalStorageImages[i].memory));
-		VK_CHECK_RESULT(vkBindImageMemory(vulkanDevice->logicalDevice, additionalStorageImages[i].image, additionalStorageImages[i].memory, 0));
-
-		VkImageViewCreateInfo colorImageView{
-			.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-			.image = additionalStorageImages[i].image,
-			.viewType = VK_IMAGE_VIEW_TYPE_2D,
-			.format = format,
-			.subresourceRange = {
-				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-				.baseMipLevel = 0,
-				.levelCount = 1,
-				.baseArrayLayer = 0,
-				.layerCount = 1
-			},
-		};
-		VK_CHECK_RESULT(vkCreateImageView(vulkanDevice->logicalDevice, &colorImageView, nullptr, &additionalStorageImages[i].view));
-
-		VkCommandBuffer cmdBuffer = vulkanDevice->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
-		vks::tools::setImageLayout(cmdBuffer, additionalStorageImages[i].image,
-			VK_IMAGE_LAYOUT_UNDEFINED,
-			VK_IMAGE_LAYOUT_GENERAL,
-			{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
-		vulkanDevice->flushCommandBuffer(cmdBuffer, queue);
+	if (outImage.image != VK_NULL_HANDLE) {
+		vkDestroyImageView(device, outImage.view, nullptr);
+		vkDestroyImage(device, outImage.image, nullptr);
+		vkFreeMemory(device, outImage.memory, nullptr);
+		outImage = {};
 	}
+
+	VkImageCreateInfo image{
+		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+		.imageType = VK_IMAGE_TYPE_2D,
+		.format = format,
+		.extent = extent,
+		.mipLevels = 1,
+		.arrayLayers = 1,
+		.samples = VK_SAMPLE_COUNT_1_BIT,
+		.tiling = VK_IMAGE_TILING_OPTIMAL,
+		.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
+	};
+	VK_CHECK_RESULT(vkCreateImage(vulkanDevice->logicalDevice, &image, nullptr, &outImage.image));
+
+	VkMemoryRequirements memReqs;
+	vkGetImageMemoryRequirements(vulkanDevice->logicalDevice, outImage.image, &memReqs);
+	VkMemoryAllocateInfo memoryAllocateInfo = vks::initializers::memoryAllocateInfo();
+	memoryAllocateInfo.allocationSize = memReqs.size;
+	memoryAllocateInfo.memoryTypeIndex = vulkanDevice->getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	VK_CHECK_RESULT(vkAllocateMemory(vulkanDevice->logicalDevice, &memoryAllocateInfo, nullptr, &outImage.memory));
+	VK_CHECK_RESULT(vkBindImageMemory(vulkanDevice->logicalDevice, outImage.image, outImage.memory, 0));
+
+	VkImageViewCreateInfo colorImageView{
+		.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+		.image = outImage.image,
+		.viewType = VK_IMAGE_VIEW_TYPE_2D,
+		.format = format,
+		.subresourceRange = {
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.baseMipLevel = 0,
+			.levelCount = 1,
+			.baseArrayLayer = 0,
+			.layerCount = 1
+		},
+	};
+	VK_CHECK_RESULT(vkCreateImageView(vulkanDevice->logicalDevice, &colorImageView, nullptr, &outImage.view));
+
+	VkCommandBuffer cmdBuffer = vulkanDevice->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+	vks::tools::setImageLayout(cmdBuffer, outImage.image,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_IMAGE_LAYOUT_GENERAL,
+		{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+	vulkanDevice->flushCommandBuffer(cmdBuffer, queue);
 }
 
 void VulkanExample::prepare()
@@ -725,7 +732,7 @@ void VulkanExample::prepare()
 	createTopLevelAccelerationStructure();
 
 	createStorageImage(swapChain.colorFormat, { width, height, 1 });
-	createAdditionalStorageImages(swapChain.colorFormat, { width, height, 1 });
+	createAdditionalStorageImages();
 	createUniformBuffer();
 	createRayTracingPipeline();
 	createShaderBindingTables();
