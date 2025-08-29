@@ -188,8 +188,9 @@ void closesthitMain(inout Payload payload, in Attributes attribs)
     // Shadow casting
     float tmin = 0.001;
     float tmax = 10000.0;
-    float epsilon = 0.001;
-    float3 origin = WorldRayOrigin() + WorldRayDirection() * RayTCurrent() + tri.normal * epsilon;
+    float3 origin = WorldRayOrigin() + WorldRayDirection() * RayTCurrent();
+    positionOut[int2(DispatchRaysIndex().xy)] = float4(origin, 1);
+    normalOut[int2(DispatchRaysIndex().xy)] = float4(tri.normal, 1);
     payload.shadowed = true;
     float3 lightVector = float3(-5.0, -2.5, -5.0);
     // Trace shadow ray and offset indices to match shadow hit/miss shader group indices
@@ -218,4 +219,6 @@ void anyhitMain(inout Payload payload, in Attributes attribs)
 void missMain(inout Payload payload)
 {
     payload.hitValue = float3(1.0);
+    positionOut[int2(DispatchRaysIndex().xy)] = float4(0,0,0,0);
+    normalOut[int2(DispatchRaysIndex().xy)] = float4(0,0,0,0);
 }
