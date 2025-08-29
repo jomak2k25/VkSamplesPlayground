@@ -11,16 +11,10 @@ struct Payload
     bool shadowed;
 };
 
-struct GeometryNode {
-    ConstBufferPointer<float4> vertices;
-    ConstBufferPointer<uint> indices;
-    int textureIndexBaseColor;
-    int textureIndexOcclusion;
-};
 
 [[vk::binding(0, 0)]] RaytracingAccelerationStructure accelStruct;
-[[vk::binding(1, 0)]] Texture2D<float4> positionsIn;
-[[vk::binding(2, 0)]] Texture2D<float4> normalsIn;
+[[vk::binding(1, 0)]] Sampler2D<float4> positionsIn;
+[[vk::binding(2, 0)]] Sampler2D<float4> normalsIn;
 [[vk::binding(3, 0)]] RWTexture2D<float> aoResult;
 
 

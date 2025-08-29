@@ -486,6 +486,99 @@ void VulkanExample::createRayTracingPipeline()
 	VK_CHECK_RESULT(vkCreateRayTracingPipelinesKHR(device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &rayTracingPipelineCI, nullptr, &pipeline));
 }
 
+// Create our ray traced Ambient Occlusion pipeline
+void VulkanExample::createRTAOPipeline()
+{
+	std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {
+		// Binding 0: Top level acceleration structure
+		vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, 0),
+		// Binding 1: World Positions In
+		vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR, 1),
+		// Binding 2: Normals In
+		vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR, 2),
+		// Binding 3: Ambient Occlusion Results
+		vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR, 3),
+	};
+
+	// Unbound set
+	VkDescriptorSetLayoutBindingFlagsCreateInfoEXT setLayoutBindingFlags{};
+	setLayoutBindingFlags.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT;
+	setLayoutBindingFlags.bindingCount = 4;
+	std::vector<VkDescriptorBindingFlagsEXT> descriptorBindingFlags = {
+		0,
+		0,
+		0,
+		0
+	};
+	setLayoutBindingFlags.pBindingFlags = descriptorBindingFlags.data();
+
+	VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCI = vks::initializers::descriptorSetLayoutCreateInfo(setLayoutBindings);
+	descriptorSetLayoutCI.pNext = &setLayoutBindingFlags;
+	VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &descriptorSetLayoutCI, nullptr, &RTAOdescriptorSetLayout));
+
+	VkPipelineLayoutCreateInfo pipelineLayoutCI = vks::initializers::pipelineLayoutCreateInfo(&RTAOdescriptorSetLayout, 1);
+	VK_CHECK_RESULT(vkCreatePipelineLayout(device, &pipelineLayoutCI, nullptr, &RTAOpipelineLayout));
+
+	/*
+		Setup ray tracing shader groups
+	*/
+	std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
+
+	// Ray generation group
+	{
+		shaderStages.push_back(loadShader(getShadersPath() + "raytracinggltf/RTAO.rgen.spv", VK_SHADER_STAGE_RAYGEN_BIT_KHR));
+		VkRayTracingShaderGroupCreateInfoKHR shaderGroup{};
+		shaderGroup.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
+		shaderGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+		shaderGroup.generalShader = static_cast<uint32_t>(shaderStages.size()) - 1;
+		shaderGroup.closestHitShader = VK_SHADER_UNUSED_KHR;
+		shaderGroup.anyHitShader = VK_SHADER_UNUSED_KHR;
+		shaderGroup.intersectionShader = VK_SHADER_UNUSED_KHR;
+		RTAOshaderGroups.push_back(shaderGroup);
+	}
+
+	// Miss group
+	{
+		shaderStages.push_back(loadShader(getShadersPath() + "raytracinggltf/RTAO.rmiss.spv", VK_SHADER_STAGE_MISS_BIT_KHR));
+		VkRayTracingShaderGroupCreateInfoKHR shaderGroup{};
+		shaderGroup.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
+		shaderGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+		shaderGroup.generalShader = static_cast<uint32_t>(shaderStages.size()) - 1;
+		shaderGroup.closestHitShader = VK_SHADER_UNUSED_KHR;
+		shaderGroup.anyHitShader = VK_SHADER_UNUSED_KHR;
+		shaderGroup.intersectionShader = VK_SHADER_UNUSED_KHR;
+		RTAOshaderGroups.push_back(shaderGroup);
+	}
+
+	// Closest hit group for doing texture lookups
+	{
+		shaderStages.push_back(loadShader(getShadersPath() + "raytracinggltf/RTAO.rchit.spv", VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR));
+		VkRayTracingShaderGroupCreateInfoKHR shaderGroup{};
+		shaderGroup.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
+		shaderGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
+		shaderGroup.generalShader = VK_SHADER_UNUSED_KHR;
+		shaderGroup.closestHitShader = static_cast<uint32_t>(shaderStages.size()) - 1;
+		shaderGroup.intersectionShader = VK_SHADER_UNUSED_KHR;
+		// This group also uses an anyhit shader for doing transparency (see anyhit.rahit for details)
+		shaderStages.push_back(loadShader(getShadersPath() + "raytracinggltf/RTAO.rahit.spv", VK_SHADER_STAGE_ANY_HIT_BIT_KHR));
+		shaderGroup.anyHitShader = static_cast<uint32_t>(shaderStages.size()) - 1;
+		RTAOshaderGroups.push_back(shaderGroup);
+	}
+
+	/*
+		Create the ray tracing pipeline
+	*/
+	VkRayTracingPipelineCreateInfoKHR rayTracingPipelineCI{};
+	rayTracingPipelineCI.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR;
+	rayTracingPipelineCI.stageCount = static_cast<uint32_t>(shaderStages.size());
+	rayTracingPipelineCI.pStages = shaderStages.data();
+	rayTracingPipelineCI.groupCount = static_cast<uint32_t>(RTAOshaderGroups.size());
+	rayTracingPipelineCI.pGroups = RTAOshaderGroups.data();
+	rayTracingPipelineCI.maxPipelineRayRecursionDepth = 1;
+	rayTracingPipelineCI.layout = RTAOpipelineLayout;
+	VK_CHECK_RESULT(vkCreateRayTracingPipelinesKHR(device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &rayTracingPipelineCI, nullptr, &RTAOpipeline));
+}
+
 /*
 	Create the descriptor sets used for the ray tracing dispatch
 */
@@ -735,6 +828,7 @@ void VulkanExample::prepare()
 	createAdditionalStorageImages();
 	createUniformBuffer();
 	createRayTracingPipeline();
+	createRTAOPipeline();
 	createShaderBindingTables();
 	createDescriptorSets();
 	prepared = true;

@@ -36,6 +36,7 @@ public:
 	vks::Buffer geometryNodesBuffer;
 
 	std::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups{};
+	std::vector<VkRayTracingShaderGroupCreateInfoKHR> RTAOshaderGroups{};
 	struct ShaderBindingTables {
 		ShaderBindingTable raygen;
 		ShaderBindingTable miss;
@@ -52,8 +53,11 @@ public:
 	std::array<vks::Buffer, maxConcurrentFrames> uniformBuffers;
 
 	VkPipeline pipeline{ VK_NULL_HANDLE };
+	VkPipeline RTAOpipeline{ VK_NULL_HANDLE };
 	VkPipelineLayout pipelineLayout{ VK_NULL_HANDLE };
+	VkPipelineLayout RTAOpipelineLayout{ VK_NULL_HANDLE };
 	VkDescriptorSetLayout descriptorSetLayout{ VK_NULL_HANDLE };
+	VkDescriptorSetLayout RTAOdescriptorSetLayout{ VK_NULL_HANDLE };
 	std::array<VkDescriptorSet, maxConcurrentFrames> descriptorSets{};
 
 	vkglTF::Model model;
@@ -77,6 +81,8 @@ public:
 
 	//	Create our ray tracing pipeline
 	void createRayTracingPipeline();
+	// Create our ray traced Ambient Occlusion pipeline
+	void createRTAOPipeline();
 	//	Create the descriptor sets used for the ray tracing dispatch
 	void createDescriptorSets();
 	//	Create the uniform buffer used to pass matrices to the ray tracing ray generation shader
