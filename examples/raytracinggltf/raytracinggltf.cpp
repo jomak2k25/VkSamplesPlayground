@@ -386,9 +386,9 @@ void VulkanExample::createRayTracingPipeline()
 		// Binding 1: Ray tracing result image
 		vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR, 1),
 		// Binding 2: Ray tracing position Output
-		vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, 2),
+		vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR, 2),
 		// Binding 3: Ray tracing normal Output
-		vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, 3),
+		vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR, 3),
 		// Binding 4: Uniform buffer
 		vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR, 4),
 		// Binding 5: Texture image
@@ -404,6 +404,8 @@ void VulkanExample::createRayTracingPipeline()
 	setLayoutBindingFlags.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT;
 	setLayoutBindingFlags.bindingCount = 8;
 	std::vector<VkDescriptorBindingFlagsEXT> descriptorBindingFlags = {
+		0,
+		0,
 		0,
 		0,
 		0,
@@ -542,9 +544,9 @@ void VulkanExample::createDescriptorSets()
 			// Binding 1: Ray tracing result image
 			vks::initializers::writeDescriptorSet(descriptorSets[i], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, &storageImageDescriptor),
 			// Binding 2: Ray tracing positions result image
-			vks::initializers::writeDescriptorSet(descriptorSets[i], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, &additionalStorageImageDescriptors[0]),
+			vks::initializers::writeDescriptorSet(descriptorSets[i], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2, &additionalStorageImageDescriptors[0]),
 			// Binding 3: Ray tracing normals result image
-			vks::initializers::writeDescriptorSet(descriptorSets[i], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, &additionalStorageImageDescriptors[1]),
+			vks::initializers::writeDescriptorSet(descriptorSets[i], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 3, &additionalStorageImageDescriptors[1]),
 			// Binding 4: Uniform data
 			vks::initializers::writeDescriptorSet(descriptorSets[i], VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 4, &uniformBuffers[i].descriptor),
 			// Binding 6: Geometry node information SSBO
@@ -563,7 +565,7 @@ void VulkanExample::createDescriptorSets()
 
 		VkWriteDescriptorSet writeDescriptorImgArray{};
 		writeDescriptorImgArray.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		writeDescriptorImgArray.dstBinding = 5;
+		writeDescriptorImgArray.dstBinding = 7;
 		writeDescriptorImgArray.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		writeDescriptorImgArray.descriptorCount = imageCount;
 		writeDescriptorImgArray.dstSet = descriptorSets[i];
