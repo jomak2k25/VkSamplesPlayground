@@ -1,0 +1,1 @@
+call python.exe shaders\slang\compileRTGLTFshaders.py
